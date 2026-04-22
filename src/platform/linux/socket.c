@@ -6,15 +6,16 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #define BEACON_PORT 47272
 
 // Presence est la focntion qui emet les beacon
-int presence(char *username,char *ip,int port_tcp,char *message)
+int presence(char *id,char *username,char *ip,int port_tcp,char *message)
 {
     char beacon[256];
-    snprintf(beacon,sizeof(beacon), "toole|%s|%s|%d|%s",username,ip,port_tcp,message);
+    snprintf(beacon,sizeof(beacon), "toole|%s|%s|%s|%d|%s",id,username,ip,port_tcp,message);
 
     //Hello le BOP,sur cette section , je creer le socket qui retourne un nombre negatif si echec et  un nombre positif si succès
     int socket_udp;
@@ -45,15 +46,23 @@ int presence(char *username,char *ip,int port_tcp,char *message)
     return 0;
 }
 //-------------------------------------------------------------------------
+typedef struct {
+    char id[37];
+    char username[64];
+    char ip[16];
+    int  port_tcp;
+    char message[128];
+} device;
+int nb=0;
 //hear ecoute les beacon sur le port d'emmision
-int hear(){
+device *hear(void)
+{
 
     //Hello le BOP ici je cree un socket UDP pour la fonction hear()
     int socket_udp;
     socket_udp = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_udp<0){
         perror("La creation du socket a echoué");
-        return -1;
     }
 
     // creation de la stucture(support pour la transmision)
@@ -68,34 +77,64 @@ int hear(){
     if(bind (socket_udp, (struct sockaddr *) &network_utils, sizeof( network_utils))< 0)
     {
         perror("bind() a echoué");
-        return -1;
+        close(socket_udp);
+        return NULL;
     }
-    //cette structure permet de mettre un timeout de 2 second
-    struct timeval timeout =
-        {
-            .tv_sec = 2,
-            .tv_usec = 0
-        };
-
-    setsockopt(socket_udp, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-
+    
+    
+    int capacite = 4;
+    int count = 0;
+    device *liste = malloc(capacite * sizeof(device));
+    if (liste == NULL) {
+        perror("malloc a echoue");
+        close(socket_udp);
+        return NULL;
+    }
+    
     char buffer[256];
     socklen_t size_of=sizeof(network_utils);
 
-    if(recvfrom(socket_udp, buffer, sizeof(buffer)-1, 0,(struct sockaddr *)&network_utils, &size_of)<0){
-        perror("Erreur de reception");
+    while (1) {
+        ssize_t result=recvfrom(socket_udp, buffer, sizeof(buffer)-1, 0,(struct sockaddr *)&network_utils, &size_of);
+        
+        if(result<0) break;
+        buffer[result]='\0';
+        
+        if (strncmp(buffer, "toole", 5) != 0) continue;
+        if (count == capacite) {
+            capacite *= 2;
+            device *tmp = realloc(liste, capacite * sizeof(device));
+            if (tmp == NULL) {
+                perror("hear() -> realloc a echoue");
+                break;
+            }
+            liste = tmp;
+                }
+        device d;
+        sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%127[^\n]",d.id, d.username, d.ip, &d.port_tcp, d.message);
+        liste[count] = d;
+        count++;
+        }
+        close(socket_udp);
+        nb = count;
+    
+        return liste;
     }
-    printf("%s",buffer);
-    return 0;
-}
+
 
 int main(void)
 {
-    while (1) {
-    presence("Gérard","192.168.100.1",47222,"auto");
-    hear();
-    sleep(1);
-    }
-    hear();
-    return 0;
+    device *appareils = hear();
+    
+        for (int i = 0; i < nb; i++) {
+            printf("[%d] %s | %s | port %d | %s\n",
+                   i + 1,
+                   appareils[i].username,
+                   appareils[i].ip,
+                   appareils[i].port_tcp,
+                   appareils[i].message);
+        }
+    
+        free(appareils);
+        return 0;
 }
