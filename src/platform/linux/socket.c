@@ -87,7 +87,18 @@ typedef struct {
 int nb=0;
 
 //Hello le BOP, cette focntion permet de suprimer les appareils s'ils n'envoie de beacon pendant 10 second
-
+void cleanner(device *liste){
+    time_t now=time(NULL);
+    for (int i = 0; i < nb; i++) {
+        if (difftime(now, liste[i].last_time) > 10) {
+            for (int j = i; j < nb - 1; j++) {
+                liste[j] = liste[j + 1];
+            }
+            nb--;
+            i--;
+    }
+    }
+}
 //hear ecoute les beacon sur le port d'emmision
 void hear(int socket_udp,device *liste)
 {
@@ -95,19 +106,19 @@ void hear(int socket_udp,device *liste)
         struct sockaddr_in sender_addr;
         socklen_t size_of = sizeof(sender_addr);
         ssize_t result=recvfrom(socket_udp, buffer, sizeof(buffer)-1, 0,(struct sockaddr *)&sender_addr, &size_of);
-    
+
         if (result > 0) {
             buffer[result] = '\0';
-            
+
             //ici je filtre les beacons, pour ne laiser que les beacons avec la signature de toolé
             if (strncmp(buffer, "toole", 5) == 0) {
                 device d;
                 // Je  parse les beacons recues pour le mettre  dans la structure device que j'ai creé
                 sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%127[^\n]", d.id, d.username, d.ip, &d.port_tcp, d.message);
-                
+                d.last_time=time(NULL);
                 /*là pour eviter les doublons de beacons, je verifie la liste, si l'id d'un nouveau becons est deja present dans la liste ,
                  je le suprime et dans le cas contraire , je l'ajoute imediatement
-                    */ 
+                    */
                 int index = -1;
                 for (int i = 0; i < nb; i++) {
                     if (strcmp(liste[i].id, d.id) == 0) {
@@ -141,6 +152,7 @@ int main(void)
     device *devices = malloc(100 * sizeof(device));
     while (1) {
         hear(sock, devices);
+        cleanner(devices);
         for (int i = 0; i < nb; i++) {
                     printf("[%d] %s | %s\n", i+1, devices[i].username, devices[i].ip);
                 }
