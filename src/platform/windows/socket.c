@@ -12,26 +12,129 @@
 #define BROADCAST_IP "255.255.255.255"//address de diffusion
 
 
-// En gros ,cette fonction ci-dessous permet la 1=>de signaler sa presence sur le resau 2=>detecter la presence des autres pc.
-int presence(char *ip,int port_tcp,char *message); 
+
+// En gros ,cette fonction ci-dessous permet sa presence aux autres pc qui ecoutent sur le port.
+int presence(char *ip,int port_tcp,char *message,char *username,int id); 
+//------------------------------------------------------------------------------------
+// Ici cette le prototype de la func qui permet d'ecouter sur le resau 
 
 //generer des id pour les pc.
 char * id_generertor();
+
+typedef struct {
+    char id[37];
+    char username[64];
+    char ip[16];
+    int  port_tcp;
+    char message[128];
+    time_t last_time;
+} devices;
 /*fonction main:l'entre du code | programe*/
+
 int main(void)
 {
-    presence("172.16.17.140",PORT,"gosse");
+    
     char *name_pc = id_generertor();
-    printf("%s",name_pc);
+    //presence("172.16.17.140",PORT,name_pc);
     free(name_pc);
     return 0;
 }
+//------------------------------------------------------------------------------------------------
 
+
+void cleaner_(devices *liste,int *nb){
+    time_t now = time(NULL);
+    int keepCount = 0;
+
+    for(int i = 0; i < *nb; i++){
+        if ((now - liste[i].last_time) <= 10){
+            liste[keepCount] = liste[i];
+            keepCount++;
+        }
+        
+    }
+    *nb = keepCount;
+}
+//fonction pour ecouter sur le port .
+
+int head(devices *liste,int *nb){
+    char buffer[256];
+    WSADATA head_addr;
+    if(WSAStartup(MAKEWORD(2,2),&head_addr) != 0){
+        printf("initialisation de la socket a échoué : %d", WSAGetLastError());
+        exit(1);
+    }
+
+    SOCKET head_sock = socket(AF_INET,SOCK_DGRAM,0);
+    if(head_sock == INVALID_SOCKET){
+        printf("creation de la socket  a échoué : %d", WSAGetLastError());
+        WSACleanup();
+        exit(1);
+    }
+
+    //  Configuration de l'adresse de réception
+    struct sockaddr_in recvAddr;
+    recvAddr.sin_family = AF_INET;
+    recvAddr.sin_port = htons(PORT);
+    recvAddr.sin_addr.s_addr = INADDR_ANY;
+
+    // Liaison (Bind) AVEC le socket (head_sock) creer plus haut
+    if (bind(head_sock, (struct sockaddr*)&recvAddr, sizeof(recvAddr)) == SOCKET_ERROR) {
+        printf("Erreur bind: %d\n", WSAGetLastError());
+        closesocket(head_sock);
+        WSACleanup();
+        return 1;
+    }
+
+    //   réception
+        int bytesReceived = recvfrom(head_sock, buffer, sizeof(buffer) - 1, 0, 
+                                     (struct sockaddr*)&recvAddr, &recvAddr);
+        
+        if (bytesReceived > 0) {
+            char *ip_client = inet_ntoa(recvAddr.sin_addr);
+            if(strcmp(ip_client,"127.0.0.1")==0){
+                printf("c'est mon propre message");
+                return;
+            }else{
+            buffer[bytesReceived] = '\0';
+
+               if (strncmp(buffer, "toole", 5) == 0) {
+                devices d;
+                // Je  parse les beacons recues pour le mettre  dans la structure device que j'ai creé
+                sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%127[^\n]", d.id, d.username, d.ip, &d.port_tcp, d.message);
+                d.last_time=time(NULL);
+                /*là pour eviter les doublons de beacons, je verifie la liste, si l'id d'un nouveau becons est deja present dans la liste ,
+                 je le suprime et dans le cas contraire , je l'ajoute imediatement
+                    */
+                int index = -1;
+                for (int i = 0; i < nb; i++) {
+                    if (strcmp(liste[i].id, d.id) == 0) {
+                        index = i;
+                        break;
+                    }
+                }
+                if (index != -1) {
+                    liste[index] = d;
+                }
+                else if (nb < 100) {
+                    liste[*nb] = d;
+                    nb++;
+                }
+            }
+        }
+
+            
+        } else if (bytesReceived == SOCKET_ERROR) {
+            printf("Erreur recvfrom: %d\n", WSAGetLastError());
+            
+        }
+    
+}
 /*Implementation des fonction */
-int presence(char *ip,int port_tcp,char *message){
+int presence(char *ip,int port_tcp,char *message,char *username,int id){
 
-    char beacon[256];
-    snprintf(beacon,sizeof(beacon), "toole|%s|%d|%s",ip,port_tcp,message);
+    char beacan[256];
+    snprintf(beacan,sizeof(beacan), "toole|%s|%s|%s|%d|%s",id,username,ip,port_tcp,message);
     WSADATA Sa;
     if(WSAStartup(MAKEWORD(2,2),&Sa) != 0){
         printf("initialisation de la socket a échoué : %d", WSAGetLastError());
@@ -63,7 +166,7 @@ int presence(char *ip,int port_tcp,char *message){
     infosock_sa.sin_addr.s_addr = INADDR_BROADCAST;
 
 
-    if (sendto(sock_envoi, beacon, strlen(beacon), 0, (struct sockaddr *)&infosock_sa, sizeof(infosock_sa)) == SOCKET_ERROR) {
+    if (sendto(sock_envoi, beacan, strlen(beacan), 0, (struct sockaddr *)&infosock_sa, sizeof(infosock_sa)) == SOCKET_ERROR) {
             printf("sendto() a échoué : %d", WSAGetLastError());
 
     }
