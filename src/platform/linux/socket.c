@@ -29,6 +29,7 @@ int presence_socket()
     if(setsockopt(socket_udp, SOL_SOCKET,SO_BROADCAST,&enable,sizeof(enable))<0)
     {
         perror("setsockopt a echoué");
+        close(socket_udp);
         return -1;
     }
     return socket_udp;
@@ -58,6 +59,7 @@ int hear_socket(){
     socket_udp = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_udp<0){
         perror("La creation du socket a echoué");
+        return -1;
     }
     // creation de la stucture(support pour la transmision)
     struct sockaddr_in network_utils=
@@ -84,23 +86,22 @@ typedef struct {
     char message[128];
     time_t last_time;
 } device;
-int nb=0;
 
 //Hello le BOP, cette focntion permet de suprimer les appareils s'ils n'envoie de beacon pendant 10 second
-void cleanner(device *liste){
+void cleaner(device *liste ,int *nb){
     time_t now=time(NULL);
-    for (int i = 0; i < nb; i++) {
+    for (int i = 0; i < *nb; i++) {
         if (difftime(now, liste[i].last_time) > 10) {
-            for (int j = i; j < nb - 1; j++) {
+            for (int j = i; j < *nb - 1; j++) {
                 liste[j] = liste[j + 1];
             }
-            nb--;
+            (*nb)--;
             i--;
     }
     }
 }
 //hear ecoute les beacon sur le port d'emmision
-void hear(int socket_udp,device *liste)
+void hear(int socket_udp,device *liste,int *nb)
 {
     char buffer[256];
         struct sockaddr_in sender_addr;
@@ -120,7 +121,7 @@ void hear(int socket_udp,device *liste)
                  je le suprime et dans le cas contraire , je l'ajoute imediatement
                     */
                 int index = -1;
-                for (int i = 0; i < nb; i++) {
+                for (int i = 0; i < *nb; i++) {
                     if (strcmp(liste[i].id, d.id) == 0) {
                         index = i;
                         break;
@@ -129,9 +130,9 @@ void hear(int socket_udp,device *liste)
                 if (index != -1) {
                     liste[index] = d;
                 }
-                else if (nb < 100) {
-                    liste[nb] = d;
-                    nb++;
+                else if (*nb < 100) {
+                    liste[*nb] = d;
+                    (*nb)++;
                 }
             }
         }
@@ -140,6 +141,7 @@ void hear(int socket_udp,device *liste)
 
 int main(void)
 {
+    int nb=0;
     // int sock=presence_socket();
     // if (sock < 0) return 1;
     // while (1) {
@@ -151,8 +153,8 @@ int main(void)
         if (sock < 0) return 1;
     device *devices = malloc(100 * sizeof(device));
     while (1) {
-        hear(sock, devices);
-        cleanner(devices);
+        hear(sock, devices,&nb);
+        cleaner(devices,&nb);
         for (int i = 0; i < nb; i++) {
                     printf("[%d] %s | %s\n", i+1, devices[i].username, devices[i].ip);
                 }
