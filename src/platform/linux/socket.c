@@ -151,7 +151,7 @@ int main(void)
     // close(sock);
     int sock = hear_socket();
         if (sock < 0) return 1;
-    device *devices = malloc(100 * sizeof(device));
+    device *devices = malloc(100 *sizeof(device));
     while (1) {
         hear(sock, devices,&nb);
         cleaner(devices,&nb);
