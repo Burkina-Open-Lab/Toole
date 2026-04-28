@@ -1,4 +1,6 @@
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -49,6 +51,42 @@ int init_server()
         close(socket_tcp);
         return -1;
     }
+    return socket_tcp;
+}
+
+// Cette focntion est là dans l'eventualité ou un appareil doit se connecter à nous , donc on peut l'accepter
+int accept_client(int socket_tcp){
+    int client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
+    if (client_socket < 0) {
+            perror("erreur d'acceptation");
+            return -1;
+        }
+        return client_socket;
+}
+
+// ici c'est dans le cas on veut se connecter à un autre server
+int connect_to(const char *ip,uint16_t port){
+    int socket_tcp=create_socket();
+    struct sockaddr_in tunnel;
+    memset(&tunnel,0,sizeof(tunnel));// ici j'initialise le structure tunnel à 0 avant d'y mettre quoi que ca soit
+    
+    tunnel.sin_family=AF_INET;
+    tunnel.sin_port=htons(port);
+    
+    // je convetit l'adresse IP qui vient sous forme de chaine de caractère en binaire
+    if (inet_pton(AF_INET, ip, &tunnel.sin_addr) != 1) {
+            perror("Erreur de conversion de l'adresse IP en binaire");
+            close(socket_tcp);
+            return -1;
+        }
+    
+    // initialisation de la connexion avec un server tcp distant
+    if (connect(socket_tcp, (struct sockaddr *)&tunnel, sizeof(tunnel)) < 0) {
+            perror("Erreur dans la tentative de connexion");
+            close(socket_tcp);
+            return -1;
+        }
+    
     return socket_tcp;
 }
 
