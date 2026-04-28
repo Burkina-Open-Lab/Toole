@@ -1,4 +1,3 @@
-#include <asm-generic/socket.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -112,7 +111,7 @@ void hear(int socket_udp,device *liste,int *nb)
             buffer[result] = '\0';
 
             //ici je filtre les beacons, pour ne laiser que les beacons avec la signature de toolé
-            if (strncmp(buffer, "toole", 5) == 0) {
+            if (strncmp(buffer, "toole|", 6) == 0) {
                 device d;
                 // Je  parse les beacons recues pour le mettre  dans la structure device que j'ai creé
                 sscanf(buffer, "toole|%36[^|]|%63[^|]|%15[^|]|%d|%127[^\n]", d.id, d.username, d.ip, &d.port_tcp, d.message);
