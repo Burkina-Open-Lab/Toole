@@ -62,6 +62,17 @@ int accept_client(int socket_tcp){
             return -1;
         }
         return client_socket;
+    // la fonction va retouner -1 , si le  server accept la connexion
+}
+
+// là on permet au serveur de refuser une connection entrante,en acceptant et en coupant la connexion imediatement
+int denied_client(int socket_tcp){
+    int client_socket=accept(socket_tcp,NULL,NULL);// je ne renvoie  ici que le socket du client, c'est pour cette raison que l'ip et le port sont à NULL
+    if (client_socket>=0) {
+        close(client_socket);
+        }
+        return client_socket;
+    // la focntion return une valeur >=0 car la connection sera fermé à la fin
 }
 
 // ici c'est dans le cas on veut se connecter à un autre server
