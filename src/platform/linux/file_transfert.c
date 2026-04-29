@@ -131,13 +131,28 @@ int send_file(int socket_tcp,const char *path,const char *new_name){
 }
 
 // là cette focntion est l'equivalent de send_struct à la reception
-int recv_struct(){
-
+int recv_struct(int socket_tcp,char *filename_out,ssize_t max_len,uint64_t *file_size_out){
+    //
+    file_struct one;
+    if (read_n(socket_tcp,&one, sizeof(one))<0) return -1;
+    
+    uint32_t name_len = ntohl(one.name_len);
+    *file_size_out = ntohll(one.file_size);
+    
+    if(name_len == 0 || name_len >= max_len) return -1;
+    if(read_n(socket_tcp, filename_out, name_len) < 0) return -1;
+   
+    filename_out[name_len] = '\0';
+    return 0;
 }
 
 // ici, c'est la focntion qui permettra de recevoir le fichier envoyé
-int recv_file(){
-
+int recv_file(int socket_tcp,const char *destination){
+    char filename[256];
+    uint64_t file_size;
+    if(recv_struct(socket_tcp, filename, sizeof(filename), &file_size) < 0) return -1;
+    
+    return 0;
 }
 
 int main(){
