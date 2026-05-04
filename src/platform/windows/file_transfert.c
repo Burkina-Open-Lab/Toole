@@ -39,7 +39,8 @@ int read_n(SOCKET fd,char *buffer,size_t n){
 }
 
 int network_send_struct(SOCKET fd,const void * data,size_t size){
-    if(write_n(fd,(const char *)data,size) != 0){
+    if(write_n(fd,(const char *)data,size) != 0)
+    {
         printf("Erreur lors de l'envoi de la structure\n");
         return -1;
     }
