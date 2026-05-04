@@ -10,6 +10,15 @@
 #define SERVER_PORT 42422
 #define BACKLOG 16 //represente le nombre de personne qui peuvent attendre avant que le server  ne les accepts
 // Hello la BOP, c'est Gérard, avec cette focntion ,je cree un socket que je vais utilisé tout dans ce fichier network.c
+
+//Prototype des fonctions
+int create_socket(void);
+int init_server(void);
+int accept_client(int socket_tcp);
+int denied_client(int socket_tcp);
+int connect_to(const char *ip, uint16_t port);
+
+
 int create_socket(){
     int socket_tcp;
     socket_tcp=socket(AF_INET, SOCK_STREAM,0);
@@ -80,28 +89,23 @@ int connect_to(const char *ip,uint16_t port){
     int socket_tcp=create_socket();
     struct sockaddr_in tunnel;
     memset(&tunnel,0,sizeof(tunnel));// ici j'initialise le structure tunnel à 0 avant d'y mettre quoi que ca soit
-    
+
     tunnel.sin_family=AF_INET;
     tunnel.sin_port=htons(port);
-    
+
     // je convetit l'adresse IP qui vient sous forme de chaine de caractère en binaire
     if (inet_pton(AF_INET, ip, &tunnel.sin_addr) != 1) {
             perror("Erreur de conversion de l'adresse IP en binaire");
             close(socket_tcp);
             return -1;
         }
-    
+
     // initialisation de la connexion avec un server tcp distant
     if (connect(socket_tcp, (struct sockaddr *)&tunnel, sizeof(tunnel)) < 0) {
             perror("Erreur dans la tentative de connexion");
             close(socket_tcp);
             return -1;
         }
-    
-    return socket_tcp;
-}
 
-int main()
-{
-    return 0;
+    return socket_tcp;
 }
