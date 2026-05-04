@@ -80,24 +80,24 @@ int connect_to(const char *ip,uint16_t port){
     int socket_tcp=create_socket();
     struct sockaddr_in tunnel;
     memset(&tunnel,0,sizeof(tunnel));// ici j'initialise le structure tunnel à 0 avant d'y mettre quoi que ca soit
-    
+
     tunnel.sin_family=AF_INET;
     tunnel.sin_port=htons(port);
-    
+
     // je convetit l'adresse IP qui vient sous forme de chaine de caractère en binaire
     if (inet_pton(AF_INET, ip, &tunnel.sin_addr) != 1) {
             perror("Erreur de conversion de l'adresse IP en binaire");
             close(socket_tcp);
             return -1;
         }
-    
+
     // initialisation de la connexion avec un server tcp distant
     if (connect(socket_tcp, (struct sockaddr *)&tunnel, sizeof(tunnel)) < 0) {
             perror("Erreur dans la tentative de connexion");
             close(socket_tcp);
             return -1;
         }
-    
+
     return socket_tcp;
 }
 
