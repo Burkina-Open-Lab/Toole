@@ -84,3 +84,9 @@ for (;;) {
     close(sock_h);
     return 0;
 }
+
+// Hello la BOP,cette fonction sera utilisé pour lancé une fonction sur une thread,je compte utilisé pthread 
+ int run_thread()
+ {
+     return 0;
+ }
