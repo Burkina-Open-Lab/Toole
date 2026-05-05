@@ -12,4 +12,9 @@ typedef struct {
     time_t last_time;
 } device;
 
+int presence_socket(void);
+int hear_socket(void);
+int presence(int socket_udp, char *id, char *username, char *ip, int port_tcp, char *message);
+void cleaner(device *liste, int *nb);
+void hear(int socket_udp, device *liste, int *nb);
 #endif

@@ -1,5 +1,3 @@
-#include <bits/time.h>
-#include <ctime>
 #include <poll.h>
 #include <sys/poll.h>
 #include <time.h>
@@ -8,26 +6,12 @@
 
 #include "discovery.h"
 #include "server_runtime.h"
+//cette type de fonction de fonction de sont celle de hear() et de presence dans discovery.c
+// elles seront utilisé par la suite pour permettre à discovery_multiplex() de prendre les focntions hear et presence en parametre
+
 
 //Hello le BOP , ici dans ce fichier ,je creér des fonctions pour gérer le logique
 //concurente  de nos differentes composantes
-
-//cette type de fonction de fonction de sont celle de hear() et de presence dans discovery.c
-// elles seront utilisé par la suite pour permettre à discovery_multiplex() de prendre les focntions hear et presence en parametre
-typedef int (*presence_fn)(
-    int socket_udp,
-    const char *id,
-    const char *username,
-    const char *ip,
-    int port_tcp,
-    const char *message
-);
-
-typedef void (*hear_fn)(
-    int socket_udp,
-    device *liste,
-    int *nb
-);
 
 // cette fonction prend des repères(timespec) dans le temps et renvoit la dureé ecoulé entre ses deux reperes
 static int duration(struct timespec a, struct timespec b)
@@ -54,7 +38,7 @@ int discovery_multiplex(presence_fn presence_cb, hear_fn hear_cb, context *ctx)
         if (sock_p >= 0) close(sock_p);
         if (sock_h >= 0) close(sock_h);
         return -1;
-}
+    }
 
 struct pollfd wait_beacon = {
     .fd = sock_h,
@@ -77,10 +61,10 @@ for (;;) {
 
     int d=duration(last,now);
     int timeout=interval-d;
-    if (timeout) timeout=0;
+    if (timeout<0) timeout=0;
 
     int r=poll(&wait_beacon,1,timeout);
-    if (r<0 && (wait_beacon.revents & POLLIN)) {
+    if (r>0 && (wait_beacon.revents & POLLIN)) {
         hear_cb(sock_h, ctx->liste, ctx->nb);
     }
     else if (r<0 && errno != EINTR) {
@@ -89,12 +73,13 @@ for (;;) {
 
     clock_gettime(CLOCK_MONOTONIC, &now);
     d=duration(last,now);
-    if (d >= interval) 
+    if (d >= interval)
     {
         presence_cb(sock_p, ctx->id, ctx->username, ctx->ip, ctx->port_tcp, ctx->message);
         last = now;
     }
     cleaner(ctx->liste, ctx->nb);
+}
     close(sock_p);
     close(sock_h);
     return 0;
