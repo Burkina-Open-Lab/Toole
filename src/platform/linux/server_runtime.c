@@ -1,4 +1,7 @@
+#include <bits/time.h>
+#include <ctime>
 #include <poll.h>
+#include <sys/poll.h>
 #include <time.h>
 #include <errno.h>
 #include <unistd.h>
@@ -38,4 +41,61 @@ static int duration(struct timespec a, struct timespec b)
     }
     int d=(sec * 1000 + nsec / 1000000);
     return d;
+}
+
+
+// là c'est une focntion qui va permettre de multiplexer les fonctions presence et hear de discovery.c
+int discovery_multiplex(presence_fn presence_cb, hear_fn hear_cb, context *ctx)
+{
+    if(!presence_cb ||!hear_cb || !ctx || !ctx->liste ||!ctx->nb) return -1;
+    int sock_p= presence_socket();
+    int sock_h= hear_socket();
+    if (sock_p < 0 || sock_h < 0) {
+        if (sock_p >= 0) close(sock_p);
+        if (sock_h >= 0) close(sock_h);
+        return -1;
+}
+
+struct pollfd wait_beacon = {
+    .fd = sock_h,
+    .events = POLLIN //pour les données qui entrent
+};
+// j'enregistre le dernier envoie de beacons
+struct timespec last;
+clock_gettime(CLOCK_MONOTONIC,&last);
+
+//là c'est une condition ternaire pour definir l'interval de temp entre deux beacons en ms bien sur
+int interval= ctx->beacon_interval >0 ? ctx->beacon_interval:1000;
+
+for (;;) {
+    if (ctx->stop_flag && *ctx->stop_flag) {
+        break;
+    }
+
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    int d=duration(last,now);
+    int timeout=interval-d;
+    if (timeout) timeout=0;
+
+    int r=poll(&wait_beacon,1,timeout);
+    if (r<0 && (wait_beacon.revents & POLLIN)) {
+        hear_cb(sock_h, ctx->liste, ctx->nb);
+    }
+    else if (r<0 && errno != EINTR) {
+        break;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    d=duration(last,now);
+    if (d >= interval) 
+    {
+        presence_cb(sock_p, ctx->id, ctx->username, ctx->ip, ctx->port_tcp, ctx->message);
+        last = now;
+    }
+    cleaner(ctx->liste, ctx->nb);
+    close(sock_p);
+    close(sock_h);
+    return 0;
 }
